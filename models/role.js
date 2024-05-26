@@ -11,61 +11,31 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
-      this.hasOne(models.User, {foreignKey: 'role_id'})
     }
   }
   Role.init({
-    id: {
-        allowNull: false,
-        type: DataTypes.UUID,
-        primaryKey: true,
-        defaultValue: DataTypes.UUIDV4
-      },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      createdAt: {
-        allowNull: false,
-        type: DataTypes.DATE
-      },
-      updatedAt: {
-        allowNull: false,
-        type: DataTypes.DATE
-      }
+    id: { 
+      type: DataTypes.UUID, 
+      primaryKey: true, 
+      defaultValue: DataTypes.UUIDV4 ,
+      allowNull: false
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
   }, {
     sequelize,
     modelName: 'Role',
+    tableName: 'Roles',
+    validateUpdateColumns() {
+      const allowedColumns = ["name"];
+      for (const key in this._changed) {
+        if (!allowedColumns.includes(key)) {
+          throw new Error(`Kolom ${key} tidak dapat diperbarui`);
+        }
+      }
+    }
   });
   return Role;
-};
-
-'use strict';
-module.exports = {
-  up: (queryInterface, Sequelize) => {
-    return queryInterface.createTable('roles', {
-      id: {
-        allowNull: false,
-        type: Sequelize.UUID,
-        primaryKey: true,
-        defaultValue: Sequelize.UUIDV4
-      },
-      name: {
-        type: Sequelize.STRING,
-        allowNull: false
-      },
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      },
-      updatedAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      }
-      
-    });
-  },
-  down: (queryInterface, Sequelize) => {
-    return queryInterface.dropTable('roles');
-  }
 };
