@@ -1,0 +1,55 @@
+"use strict";
+const { Model } = require("sequelize");
+module.exports = (sequelize, DataTypes) => {
+  class Sponsor extends Model {
+    /**
+     * Helper method for defining associations.
+     * This method is not a part of Sequelize lifecycle.
+     * The `models/index` file will call this method automatically.
+     */
+    static associate(models) {
+      // define association here
+    }
+  }
+  Sponsor.init(
+    {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+        allowNull: false,
+      },
+      name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      image_url: {
+        type: DataTypes.STRING, 
+        allowNull: false 
+      },
+      link: { 
+        type: DataTypes.STRING, 
+        allowNull: false 
+
+      },
+      is_active: { 
+        type: DataTypes.BOOLEAN, 
+        defaultValue: false 
+      },
+    },
+    {
+      sequelize,
+      modelName: "Sponsor",
+      tableName: "sponsors",
+      validateUpdateColumns() {
+        const allowedColumns = ["name", "image_url", ];
+        for (const key in this._changed) {
+          if (!allowedColumns.includes(key)) {
+            throw new Error(`Kolom ${key} tidak dapat diperbarui`);
+          }
+        }
+      }
+    }
+  );
+  return Sponsor;
+};
