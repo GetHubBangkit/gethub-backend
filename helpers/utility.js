@@ -50,12 +50,25 @@ function generateRandomString(length) {
   return result;
 }
 
+const formatDate = (date, dateFormat = 'd-MMM-yyyy') => {
+  return format(new Date(date), dateFormat, { locale: id });
+};
 
+const formatDates = (obj, dateFields, dateFormat = 'd-MMM-yyyy') => {
+  const formattedObj = { ...obj };
+  dateFields.forEach(field => {
+    if (obj[field]) {
+      formattedObj[field] = formatDate(obj[field], dateFormat);
+    }
+  });
+  return formattedObj;
+};
 
 module.exports = { 
   generateAccessToken, 
   getUserId, 
   verifyAccessToken, 
   generateRandomString,
-  getThemehub
+  getThemehub,
+  formatDates
 };
