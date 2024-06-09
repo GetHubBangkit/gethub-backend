@@ -198,6 +198,46 @@ const getPublicUser = async (req, res) => {
   }
 };
 
+const updateVisibility = async (req, res) => {
+  try{
+    const {user_id} = getUserId(req);
+    const { is_visibility } = req.body;
+
+    if (typeof is_visibility !== 'boolean') {
+      return res.status(400).json({ error: 'is_visibility harus berupa boolean' });
+    }
+
+    const [updatedRows] = await models.User.update(
+      { is_visibility },
+      { where: { id: user_id } }
+    );
+
+    if (updatedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Pengguna tidak ditemukan",
+        error_code: 404,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Visibilitas berhasil diperbarui",
+      error_code: 0,
+    });
+    
+
+  } catch (error) {
+    console.error("Error mengubah visibility:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Kesalahan internal server",
+      error_code: 500,
+    })
+  }
+}
+
 module.exports = {
   getPublicUser,
+  updateVisibility,
 };

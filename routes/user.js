@@ -18,4 +18,6 @@ router.get("/public/profile", userController.getPublicUser);
 router.get("/verify/:token", verifyTokenEmail);
 router.get("/regenerate-verification", authenticateToken, regenerateVerificationToken);
 
+router.post("/update/visibility", authenticateToken, userController.updateVisibility);
+
 module.exports = router;
