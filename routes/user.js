@@ -21,4 +21,6 @@ router.get("/regenerate-verification", authenticateToken, regenerateVerification
 router.post("/update/visibility", authenticateToken, userController.updateVisibility);
 router.post("/update/theme_hub", authenticateToken, userController.updateThemeHub);
 
+router.get("/getTopTalent", authenticateToken, userController.getTopTalent);
+
 module.exports = router;
