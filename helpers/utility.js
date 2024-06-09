@@ -50,6 +50,111 @@ function generateRandomString(length) {
   return result;
 }
 
+const backgrounCards = [
+  {
+    id: 1,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card1/backgroundCard.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card1/getHub.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card1/card1.png',
+    isPremium: false
+  },
+  {
+    id: 2,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card2/backgroundCard.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card2/gethub.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card2/card2.png  ',
+    isPremium: false
+  },
+  {
+    id: 3,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card3/backgroundCard.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card3/gethub.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card3/card3.png',
+    isPremium: false
+  },
+  {
+    id: 4,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card4/backgroundCard.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card4/gethub.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card4/card4.png',
+    isPremium: false
+  },
+  {
+    id: 5,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card5/backgroundCard.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card5/gethub.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card5/card5.png',
+    isPremium: false
+  },
+  {
+    id: 6,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card6/backgroundCard.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card6/gethub.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card6/card6.png',
+    isPremium: false
+  },
+  {
+    id: 7,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card7/backgroundCard.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card7/gethub.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card7/card7.png',
+    isPremium: true
+  },
+  {
+    id: 8,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card8/backgroundCard.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card8/gethub.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card8/card8.png',
+    isPremium: true
+  },
+  {
+    id: 9,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card9/backgroundCard.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card9/gethub.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card9/card9.png',
+    isPremium: true
+  },
+  {
+    id: 10,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card10/bg.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card10/icon.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card10/card.png  ',
+    isPremium: true
+  },
+  {
+    id: 11,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card11/bg.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card11/icon.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card11/card.png',
+    isPremium: true
+  },
+  {
+    id: 12,
+    bg: 'https://storage.googleapis.com/gethub_bucket/CARD/card12/bg.png',
+    icon: 'https://storage.googleapis.com/gethub_bucket/CARD/card12/icon.png',
+    card: 'https://storage.googleapis.com/gethub_bucket/CARD/card12/card12.png',
+    isPremium: true
+  }
+]
+
+const getUserProfileCard = async (username) => {
+  const user = await models.User.findOne({ where: { username: username } });
+
+  for (let bgCard of backgrounCards) {
+    if (bgCard.id === user.theme_hub) {
+      if (user.is_premium || !bgCard.isPremium) {
+        return {
+          bg: bgCard.bg,
+          icon: bgCard.icon,
+          card: bgCard.card
+        };
+      }
+    }
+  }return {
+    message : "User tidak dapat menggunakan theme ini"
+  }
+};
+
 const formatDate = (date, dateFormat = 'd-MMM-yyyy') => {
   return format(new Date(date), dateFormat, { locale: id });
 };
@@ -64,11 +169,18 @@ const formatDates = (obj, dateFields, dateFormat = 'd-MMM-yyyy') => {
   return formattedObj;
 };
 
-module.exports = { 
-  generateAccessToken, 
-  getUserId, 
-  verifyAccessToken, 
+const getUserIdByUsername = async (username) => {
+  const user = await models.User.findOne({ where: { username: username } });
+  return user.id;
+};
+
+module.exports = {
   generateRandomString,
+  verifyAccessToken,
+  generateAccessToken,
+  getUserId,
   getThemehub,
-  formatDates
+  getUserProfileCard,
+  formatDates,
+  getUserIdByUsername,
 };

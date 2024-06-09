@@ -13,6 +13,8 @@ const router = express.Router();
 router.post("/register", userController.register);
 router.post("/login", validateLoginUser, userController.login);
 
+router.get("/public/profile", userController.getPublicUser);
+
 router.get("/verify/:token", verifyTokenEmail);
 router.get("/regenerate-verification", authenticateToken, regenerateVerificationToken);
 
