@@ -25,19 +25,24 @@ const createEnumeration = async (req, res) => {
 const getAllEnumerations = async (req, res) => {
   try {
     const enumerations = await models.Enumeration.findAll();
+    const countEnumerations = await models.Enumeration.count()
     if (!enumerations || enumerations.length === 0) {
       return res.status(404).json({
         success: false,
         data: [],
+        total_data: countEnumerations,
         message: "Semua enumerasi tidak ditemukan",
         error_code: 404,
       });
     }
+
+    console.log(countEnumerations)
     return res.status(200).json({
       success: true,
       data: enumerations,
       message: "Semua enumerasi berhasil diambil",
       error_code: 0,
+      total_data: countEnumerations
     });
   } catch (error) {
     console.error("Error getting all enumerations:", error);
@@ -122,7 +127,11 @@ const deleteEnumeration = async (req, res) => {
       });
     }
     await deletedEnumeration.destroy();
-    return res.status(204).send();
+    return res.status(200).json({
+      success: true,
+      message: "Enumerasi berhasil dihapus",
+      error_code: 0,
+    });
   } catch (error) {
     console.error("Error deleting enumeration:", error);
     return res.status(500).json({
