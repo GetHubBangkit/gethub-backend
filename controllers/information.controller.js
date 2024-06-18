@@ -2,18 +2,24 @@ const models = require("../models");
 
 const getAllInformation = async (req, res, next) => {
   try {
-    const information = await models.Information.findAll();
+    const information = await models.Information.findAll({
+      order: [['createdAt', 'DESC']],
+    });
+    const countInformation = await models.Information.count();
     if (!information || information.length === 0) {
       return res.status(404).json({
         success: false,
         data: [],
+        total_data: countInformation,
         message: 'Informasi tidak ditemukan',
         error_code: 404,
+        total_data: countInformation
       });
     }
     return res.status(200).json({
       success: true,
       data: information,
+      total_data: countInformation,
       message: "Informasi berhasil diambil",
       error_code: 0,
     });
@@ -119,7 +125,11 @@ const deleteInformation = async (req, res, next) => {
       });
     }
     await information.destroy();
-    return res.status(204).send();
+    return res.status(200).json({
+      success: true,
+      message: "Informasi berhasil dihapus",
+      error_code: 0,
+    });
   } catch (error) {
     console.error("Error deleting information:", error);
     return res.status(500).json({
