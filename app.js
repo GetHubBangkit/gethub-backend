@@ -40,6 +40,8 @@ app.use("/api", enumeRoute);
 app.use("/api", sponsorRoute);
 app.use("/api", partnerRoute);
 app.use("/api", informationRoute);
+app.use('/api', paymentRoute)
+
 
 
 //* Helpers
