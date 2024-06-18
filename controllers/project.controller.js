@@ -118,9 +118,46 @@ const getUserJobStatsAndBids = async (req, res) => {
 const postProject = async (req, res) => {
   try {
     const { user_id } = getUserId(req);
+    const { min_budget, max_budget, min_deadline, max_deadline } = req.body;
+
+    const minBudget = parseFloat(min_budget);
+    const maxBudget = parseFloat(max_budget);
+
+    if (isNaN(minBudget) || isNaN(maxBudget)) {
+      return res.status(400).json({
+        success: false,
+        message: "Budget values must be numbers",
+        error_code: 400,
+      });
+    }
+
     const checkOwner = await models.User.findByPk(user_id, {
       where: [{ include: models.Category, as: 'category', attributes: ['name'] }]
     });
+
+    if (minBudget >= maxBudget) {
+      return res.status(400).json({
+        success: false,
+        message: "Minimal budget harus lebih kecil dari maksimal budget",
+        error_code: 400
+      })
+    }
+
+    if (maxBudget <= minBudget) {
+      return res.status(400).json({
+        success: false,
+        message: "Maksimal budget harus lebih besar dari minimal budget",
+        error_code: 400
+      })
+    }
+
+    if (new Date(min_deadline) > new Date(max_deadline)) {
+      return res.status(400).json({
+        success: false,
+        message: "Min_deadline harus lebih kecil dari max_deadline",
+        error_code: 400,
+      });
+    }
 
     if (!checkOwner) {
       return res.status(404).json({
@@ -130,7 +167,7 @@ const postProject = async (req, res) => {
       });
     }
 
-    const project = await models.Project.create({ ...req.body, owner_id: user_id });
+    const project = await models.Project.create({ ...req.body, min_budget: minBudget, max_budget: maxBudget, owner_id: user_id });
     project.is_active = true;
 
     const job = cron.schedule('0 0 * * *', async () => {
@@ -320,13 +357,20 @@ const getAllProjects = async (req, res) => {
 
     const projects = await models.Project.findAll({
       where: {
-        is_active: true
+        is_active: true,
+        owner_id: { [Op.ne]: user_id },
+        status_project: { [Op.notIn]: ['FINISHED', 'CLOSE'] }
       },
+      order: [
+        [literal(`CASE WHEN "category"."name" LIKE '%${userPreferredCategory}%' THEN 0 ELSE 1 END`), 'ASC'],
+        ['created_date', 'DESC']
+      ],
       include: [
+        
         {
           model: models.User,
           as: 'owner_project',
-          attributes: ['full_name', 'username', 'profession', 'photo']
+          attributes: ['full_name', 'username', 'profession', 'photo', 'is_verif_ktp', 'is_premium']
         },
         {
           model: models.Category,
@@ -343,10 +387,6 @@ const getAllProjects = async (req, res) => {
           as: 'users_bid',
           attributes: ['id', 'project_id', 'user_id', 'budget_bid', 'message', 'is_selected']
         }
-      ],
-      order: [
-        [literal(`CASE WHEN "category"."name" LIKE '%${userPreferredCategory}%' THEN 0 ELSE 1 END`), 'ASC'],
-        ['created_date', 'DESC']
       ]
     });
 
@@ -381,7 +421,7 @@ const getAllProjects = async (req, res) => {
       error_code: 500,
     });
   }
-}
+};
 
 
 const getAllProjectsAdmin = async (req, res) => {
@@ -395,12 +435,13 @@ const getAllProjectsAdmin = async (req, res) => {
 
     const countProjects = await models.Project.count()
     const projects = await models.Project.findAll({
+      order: [['created_date', 'DESC']],
       where: filter,
       include: [
         {
           model: models.User,
           as: 'owner_project',
-          attributes: ['full_name', 'username', 'profession', 'photo']
+          attributes: ['full_name', 'username', 'profession', 'photo', 'is_premium', 'is_verif_ktp']
         },
         {
           model: models.Category,
@@ -493,7 +534,7 @@ const getProjectById = async (req, res) => {
     const { id } = req.params;
     const project = await models.Project.findByPk(id, {
       include: [
-        { model: models.User, as: 'owner_project', attributes: ['full_name', 'username', 'profession', 'photo', 'sentiment_owner_score', 'sentiment_owner_analisis', 'sentiment_freelance_analisis', 'sentiment_freelance_score'] },
+        { model: models.User, as: 'owner_project', attributes: ['full_name', 'username', 'profession', 'photo', 'sentiment_owner_score', 'sentiment_owner_analisis', 'sentiment_freelance_analisis', 'sentiment_freelance_score', 'is_premium', 'is_verif_ktp'] },
         { model: models.Category, as: 'category', attributes: ['name'] },
         { model: models.Project_Task, as: 'project_tasks', attributes: ['task_number', 'task_description', 'task_status'] },
       ]
@@ -502,7 +543,7 @@ const getProjectById = async (req, res) => {
     const bids = await models.Project_User_Bid.findAll({
       where: { project_id: id },
       include: [
-        { model: models.User, as: 'users_bid', attributes: ['full_name', 'username', 'profession', 'photo'] }
+        { model: models.User, as: 'users_bid', attributes: ['full_name', 'username', 'profession', 'photo', 'is_verif_ktp', 'is_premium'] }
       ]
     });
 
@@ -546,7 +587,7 @@ const getProjectById = async (req, res) => {
 const getOwnerProjects = async (req, res) => {
   try {
     const { user_id } = getUserId(req);
-    console.log('user id ', user_id);
+
     const projects = await models.Project.findAll({
       where: { owner_id: user_id },
       include: [
@@ -557,7 +598,7 @@ const getOwnerProjects = async (req, res) => {
           as: 'users_bid',
           attributes: ['user_id', 'budget_bid', 'is_selected'],
           include: [
-            { model: models.User, as: 'users_bid', attributes: ['full_name', 'username', 'profession', 'photo'] }
+            { model: models.User, as: 'users_bid', attributes: ['full_name', 'username', 'profession', 'photo', 'is_verif_ktp', 'is_premium'] }
           ]
         },
       ]
@@ -736,7 +777,7 @@ const getUserProjectBids = async (req, res) => {
         include: [
           {
             model: models.User, as: 'owner_project', attributes: ['full_name', 'username', 'email', 'photo', 'profession',
-              'sentiment_owner_analisis', 'sentiment_freelance_analisis'
+              'sentiment_owner_analisis', 'sentiment_freelance_analisis', 'is_premium', 'is_verif_ktp'
             ]
           },
           { model: models.Project_Task, as: 'project_tasks', attributes: ['task_number', 'task_description', 'task_status'] },
@@ -809,67 +850,62 @@ const ownerSelectBidder = async (req, res) => {
       });
     }
 
-    const existingSelectedBid = await models.Project_User_Bid.findOne({
-      where: {
-        project_id: id,
-        is_selected: true
-      }
-    });
+    // const existingSelectedBid = await models.Project_User_Bid.findOne({
+    //   where: {
+    //     project_id: id,
+    //     is_selected: true
+    //   }
+    // });
 
-    if (existingSelectedBid) {
-      return res.status(400).json({
-        success: false,
-        message: "Bidder telah dipilih untuk proyek ini",
-        error_code: 400,
-      });
-    }
+    // if (existingSelectedBid) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Bidder telah dipilih untuk proyek ini",
+    //     error_code: 400,
+    //   });
+    // }
 
-    const existingUnselectedBid = await models.Project_User_Bid.findOne({
-      where: {
-        project_id: id,
-        is_selected: false
-      }
-    })
+    // const existingUnselectedBid = await models.Project_User_Bid.findOne({
+    //   where: {
+    //     project_id: id,
+    //     is_selected: false
+    //   }
+    // })
 
-    if (!existingUnselectedBid) {
-      return res.status(400).json({
-        success: false,
-        message: "Tidak ada bidder yang tersedia",
-        error_code: 400,
-      })
-    }
+    // if (!existingUnselectedBid) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Tidak ada bidder yang tersedia",
+    //     error_code: 400,
+    //   })
+    // }
 
-    if (existingUnselectedBid.user_id === freelancer_id && existingUnselectedBid.is_selected === true) {
-      return res.status(400).json({
-        success: false,
-        message: "Bidder ini telah dipilih",
-        error_code: 400,
-      })
-    }
+    // if (existingUnselectedBid.user_id === freelancer_id && existingUnselectedBid.is_selected === true) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Bidder ini telah dipilih",
+    //     error_code: 400,
+    //   })
+    // }
 
     const selectedBidder = await models.Project_User_Bid.findOne({
       where: {
         project_id: id,
         user_id: freelancer_id,
-        is_selected: false
+        // is_selected: false
       }
     })
 
-    console.log(selectedBidder)
+    // console.log(selectedBidder)
 
     await models.Project.update(
       {
-        status_project: 'CLOSE',
-        status_freelance_task: 'CLOSE',
+        // status_project: 'CLOSE',
+        // status_freelance_task: 'CLOSE',
         fee_owner_transaction_value: selectedBidder.budget_bid,
         fee_freelance_transaction_value: selectedBidder.budget_bid,
       },
       { where: { id } }
-    );
-
-    await models.Project_Task.update(
-      { freelancer_id: freelancer_id },
-      { where: { project_id: id } }
     );
 
     return res.status(200).json({
@@ -966,7 +1002,7 @@ const getUserSelectedProjectBids = async (req, res) => {
           { model: models.Project_Task, as: 'project_tasks', attributes: ['task_number', 'task_description', 'task_status'] },
           {
             model: models.User, as: 'owner_project', attributes: ['full_name', 'photo', 'profession', 'username',
-              'sentiment_owner_analisis', 'sentiment_freelance_analisis'
+              'sentiment_owner_analisis', 'sentiment_freelance_analisis', 'is_premium', 'is_verif_ktp'
             ]
           }
         ]
@@ -1084,13 +1120,16 @@ const searchProjectsByTitle = async (req, res) => {
       where: {
         title: {
           [Op.like]: `%${title}%`,
+        },
+        status_project: {
+          [Op.ne]: 'CLOSE'
         }
       },
       include: [
         {
           model: models.User,
           as: 'owner_project',
-          attributes: ['full_name', 'username', 'profession', 'photo']
+          attributes: ['full_name', 'username', 'profession', 'photo', 'is_premium', 'is_verif_ktp']
         },
         {
           model: models.Category,
@@ -1267,17 +1306,17 @@ const getProjectBidders = async (req, res) => {
 
     const project = await models.Project.findByPk(id, {
       include: [
-        { model: models.User, as: 'owner_project', attributes: ['full_name', 'username', 'profession', 'photo', 'sentiment_owner_analisis', 'sentiment_freelance_analisis'] },
+        { model: models.User, as: 'owner_project', attributes: ['full_name', 'username', 'profession', 'photo', 'sentiment_owner_analisis', 'sentiment_freelance_analisis', 'is_premium', 'is_verif_ktp'] },
         { model: models.Category, as: 'category', attributes: ['name'] }
       ]
     });
 
     if (!project) {
-      return res.status(200).json({
+      return res.status(404).json({
         success: false,
         data: [],
         message: "Proyek tidak ditemukan",
-        error_code: 200,
+        error_code: 404,
       });
     }
 
@@ -1286,7 +1325,7 @@ const getProjectBidders = async (req, res) => {
       include: [
         {
           model: models.User, as: 'users_bid', attributes: ['id', 'full_name', 'username', 'profession', 'photo',
-            'sentiment_owner_analisis', 'sentiment_freelance_analisis']
+            'sentiment_owner_analisis', 'sentiment_freelance_analisis', 'is_premium', 'is_verif_ktp']
         }
       ]
     });
@@ -1302,6 +1341,17 @@ const getProjectBidders = async (req, res) => {
         bidder.message = bid.message;
         return bidder;
       }).filter(user => user !== null);
+
+      // Sorting bidders in memory
+      bidders.sort((a, b) => {
+        if (a.is_verif_ktp === b.is_verif_ktp) {
+          if (a.sentiment_freelance_analisis === b.sentiment_freelance_analisis) {
+            return b.is_premium - a.is_premium;
+          }
+          return b.sentiment_freelance_analisis.localeCompare(a.sentiment_freelance_analisis);  // Assuming 'Positif' > 'Negatif'
+        }
+        return b.is_verif_ktp - a.is_verif_ktp;
+      });
     }
 
     const responseData = {
@@ -1348,13 +1398,13 @@ const getProjectDigitalContract = async (req, res) => {
     const owner_id = await getOwnerIdByChatRoomId(chatRoomId);
     const project_owner = await models.User.findOne({
       where: { id: owner_id },
-      attributes: ['full_name']
+      attributes: ['full_name', 'username']
     })
 
     const freelancer_id = await getFreelancerIdByChatRoomId(chatRoomId);
     const freelancer = await models.User.findOne({
       where: { id: freelancer_id },
-      attributes: ['full_name']
+      attributes: ['full_name', 'username']
     })
 
     const projects_detail = await models.Project.findOne({

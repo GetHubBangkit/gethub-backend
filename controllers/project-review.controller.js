@@ -1,4 +1,3 @@
-const models = require('../models');
 const { getUserId } = require('../helpers/utility');
 
 const { getSentimentAnalysis } = require('../middleware/ml-services')
@@ -18,10 +17,10 @@ async function createReview(req, res) {
       owner_id = user_id;
       freelancer_id = target_user_id;
     } else {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
         message: 'Invalid review_type',
-        error_code: 400 
+        error_code: 400
       });
     }
 
@@ -44,6 +43,7 @@ async function createReview(req, res) {
 
     const sentimentData = await getSentimentAnalysis(message, token);
     const { sentiment, accuracy } = sentimentData;
+    console.log(sentiment)
     const sentiment_score = accuracy;
 
     const review = await Project_Review.create({
@@ -56,7 +56,14 @@ async function createReview(req, res) {
       review_type
     });
 
-    const whereCondition = review_type === 'owner' ? { owner_id: target_user_id } : { freelancer_id: target_user_id };
+    let whereCondition = {};
+    if (review_type == "owner") {
+      whereCondition = { owner_id: target_user_id, review_type: "owner" };
+    }
+    else {
+      whereCondition = { freelancer_id: target_user_id, review_type: "freelancer" }
+    }
+
     const reviews = await Project_Review.findAll({ where: whereCondition });
     if (!reviews) {
       return res.status(404).json({
@@ -72,14 +79,18 @@ async function createReview(req, res) {
     let totalNetral = 0;
 
     reviews.forEach(row => {
-      if (row.sentiment === 'Positif') {
+      if (row.sentiment.toUpperCase() === 'POSITIF') {
         totalPositif += 1;
-      } else if (row.sentiment === 'Negatif') {
+      } else if (row.sentiment.toUpperCase() === 'NEGATIF') {
+        console.log('line ini dieksekusi')
         totalNegatif += 1;
-      } else if (row.sentiment === 'Netral') {
+      } else if (row.sentiment.toUpperCase() === 'NETRAL') {
+        console.log("line netral")
         totalNetral += 1;
       }
     });
+
+    console.log(reviews)
 
     // Tentukan hasil sentiment
     let sentimentResult = '';
@@ -95,15 +106,16 @@ async function createReview(req, res) {
       totalSentimentResult = totalNetral;
     }
 
-    // Update field sentiment analysis pada tabel user
     const updateField = review_type === 'owner' ? 'sentiment_owner_analisis' : 'sentiment_freelance_analisis';
     const updateScoreField = review_type === 'owner' ? 'sentiment_owner_score' : 'sentiment_freelance_score';
+    console.log('Update Field:', updateField, 'Update Score Field:', updateScoreField);
 
     const userIdToUpdate = target_user_id;
-    await User.update(
+    const updateResult = await User.update(
       { [updateField]: sentimentResult, [updateScoreField]: totalSentimentResult },
       { where: { id: userIdToUpdate } }
     );
+    console.log('Sentiment Result:', sentimentResult);
 
     res.status(201).json({
       success: true,
@@ -112,7 +124,7 @@ async function createReview(req, res) {
     });
   } catch (error) {
     console.error('Error creating project review:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: 'Internal Server Error',
       error_code: 500
