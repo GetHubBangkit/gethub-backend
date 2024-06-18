@@ -135,6 +135,249 @@ exports.login = async (req, res) => {
   }
 };
 
+const getProfileById = async (req, res) => {
+  try {
+    const {user_id} = getUserId(req)
+    const user = await models.User.findByPk(user_id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        data: {},
+        message: "Pengguna tidak ditemukan",
+        error_code: 404,
+      });
+    }
+
+    // Filter out sensitive data
+    const {
+      password,
+      ...customizedUser
+    } = user.dataValues;
+
+    return res.status(200).json({
+      success: true,
+      data: customizedUser,
+      message: "Pengguna ditemukan",
+      error_code: 0,
+    });
+  } catch (error) {
+    console.error("Error mengambil data:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Kesalahan internal server",
+      error_code: 500,
+    });
+  }
+};
+
+const getAllUsersAdmin = async (req, res) => {
+  try {
+    const { is_verif_ktp } = req.query;
+    
+    let filter = {};
+    if (is_verif_ktp !== undefined) {
+      filter = { is_verif_ktp: is_verif_ktp === 'true' };
+    }
+    const countUsers = await models.User.count();
+
+    const users = await models.User.findAll({ 
+      order: [['createdAt', 'DESC']],
+      where: filter,
+     });
+     console.log(users)
+    if (!users || users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        data: [],
+        total_data: countUsers,
+        message: `Tidak ada profil yang ${is_verif_ktp === 'true' ? 'terverifikasi' : 'belum diverifikasi'} KTP`,
+        error_code: 404,
+      });
+    }
+
+
+    const customizedUsers = users.map((user) => {
+      const {
+        password,
+        username,
+        qr_code,
+        is_verify,
+        is_premium,
+        theme_hub,
+        // role_id,
+        is_complete_profile,
+        ...customizedUser
+      } = user.dataValues;
+      return customizedUser;
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: customizedUsers,
+      message: `Semua profil ${is_verif_ktp === 'true' ? 'terverifikasi' : 'belum diverifikasi'} KTP berhasil diambil`,
+      error_code: 0,
+      total_data: countUsers
+    });
+  } catch (error) {
+    console.error("Error mengambil data semua profil:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Kesalahan internal server",
+      error_code: 500,
+    });
+  } 
+};
+
+const updateUserVerificationStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { is_verif_ktp } = req.body;
+
+    const user = await models.User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Pengguna tidak ditemukan",
+        error_code: 404
+      });
+    }
+
+    await user.update({ is_verif_ktp: is_verif_ktp });
+
+    return res.status(200).json({
+      success: true,
+      message: `Status verifikasi KTP pengguna berhasil diperbarui menjadi ${is_verif_ktp}`,
+      error_code: 0
+    });
+  } catch (error) {
+    console.error("Kesalahan saat memperbarui status verifikasi KTP pengguna:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Kesalahan internal server",
+      error_code: 500
+    });
+  }
+};
+
+
+const getAllProfiles = async (req, res) => {
+  try {
+    const users = await models.User.findAll();
+    if (!users || users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        data: [],
+        message: "Tidak ada profil yang ditemukan",
+        error_code: 404,
+      });
+    }
+
+    const customizedUsers = users.map((user) => {
+      const {
+        password,
+        username,
+        qr_code,
+        is_verify,
+        is_premium,
+        theme_hub,
+        // role_id,
+        is_complete_profile,
+        ...customizedUser
+      } = user.dataValues;
+      return customizedUser;
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: customizedUsers,
+      message: "Semua profil berhasil diambil",
+      error_code: 0,
+    });
+  } catch (error) {
+    console.error("Error mengambil data semua profil:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Kesalahan internal server",
+      error_code: 500,
+    });
+  }
+};
+
+// Perbarui profil
+const updateProfile = async (req, res) => {
+  try {
+    const {user_id} = getUserId(req);
+    const { email, ...userData } = req.body;
+
+    userData.is_complete_profile = true;
+
+    // Update user data in the database
+    const [updatedRows] = await models.User.update(userData, {
+      where: { id: user_id },
+    });
+
+    if (updatedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Pengguna tidak ditemukan",
+        error_code: 404,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Profil pengguna berhasil diperbarui",
+      error_code: 0,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Kesalahan internal server",
+      error_code: 500,
+    });
+  }
+};
+
+
+const deleteProfile = async (req, res) => {
+  try {
+    const {user_id} = getUserId(req)
+    const deletedUser = await models.User.destroy({
+      where: { id: user_id },
+    });
+
+    if (!deletedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Pengguna tidak ditemukan",
+        error_code: 404,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Profil pengguna berhasil dihapus",
+      error_code: 0,
+    });
+  } catch (error) {
+    if (error instanceof Sequelize.ForeignKeyConstraintError) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Tidak dapat menghapus pengguna karena adanya konstrain kunci asing yang ada",
+        error_code: 400,
+      });
+    }
+
+    console.error("Error menghapus profil:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Kesalahan internal server",
+      error_code: 500,
+    });
+  }
+};
+
 const getPublicUser = async (req, res) => {
   try {
     const username = req.query.username;
@@ -171,19 +414,42 @@ const getPublicUser = async (req, res) => {
     
     const backgroundCard = await getUserProfileCard(username);
 
-    const dummyProject = [
-      {
-        "title": "UI UX Designer",
-        "sentiment": "POSITIVE"
-      }
-    ];
+    const user_id = await getUserIdByUsername(username);
+    if (!user_id) {
+      return res.status(404).json({
+        success: false,
+        data: {},
+        message: "Pengguna tidak ditemukan",
+        error_code: 404,
+      });
+    }
+
+    const project_done = await models.Project_Review.findOne({
+      where: {freelancer_id: user_id, review_type: 'freelancer'},
+      attributes: ['project_id','sentiment'],
+      include: [
+        { model: models.Project, as: 'project', attributes: ['title']},]
+    });
+
+    let projectsDone = [];
+
+    if (project_done) {
+      projectsDone = [
+        {
+          "title": project_done.project.title,
+          "sentiment": project_done.sentiment,
+        }
+      ];
+    } else {
+      console.log('User belum pernah mengerjakan proyek');
+    }
 
     return res.status(200).json({
       success: true,
       data: {
         ...userData,
         background_card : backgroundCard,
-        projects : dummyProject
+        projects : projectsDone
       },
       message: "Data publik pengguna berhasil diambil",
       error_code: 0,
@@ -198,12 +464,73 @@ const getPublicUser = async (req, res) => {
   }
 };
 
-const updateVisibility = async (req, res) => {
-  try{
-    const {user_id} = getUserId(req);
-    const { is_visibility } = req.body;
 
-    if (typeof is_visibility !== 'boolean') {
+const getAllRoles = async (req, res) => {
+  try {
+    const roles = await models.Role.findAll();
+    if (!roles || roles.length === 0) {
+      return res.status(404).json({
+        success: false,
+        data: [],
+        message: "Tidak ada role yang ditemukan",
+        error_code: 404,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: roles,
+      message: "Semua role berhasil diambil",
+      error_code: 0,
+    });
+  } catch (error) {
+    console.error("Error mengambil data:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Kesalahan internal server",
+      error_code: 500,
+    });
+  }
+};
+
+
+const createRole = async (req, res) => {
+  try {
+    const role = await models.Role.create(req.body);
+    if(!role) {
+      return res.status(400).json({
+        success: false,
+        message: "Gagal membuat role",
+        error_code: 400,
+      })
+    }
+    return res.status(201).json({
+      success: true,
+      message: "Role berhasil dibuat",
+      error_code: 0,
+    })
+  } catch (error) {
+    console.error("Error membuat role:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Kesalahan internal server",
+      error_code: 500,
+    })
+  }
+}
+
+const updateVisibility = async (req, res) => {
+  try {
+    const { user_id } = getUserId(req);
+    let { is_visibility } = req.body;
+
+    if (is_visibility === undefined) {
+      return res.status(400).json({ error: 'is_visibility harus ada' });
+    }
+
+    if (typeof is_visibility === 'string') {
+      is_visibility = is_visibility.toLowerCase() === 'true';
+    } else if (typeof is_visibility !== 'boolean') {
       return res.status(400).json({ error: 'is_visibility harus berupa boolean' });
     }
 
@@ -225,7 +552,6 @@ const updateVisibility = async (req, res) => {
       message: "Visibilitas berhasil diperbarui",
       error_code: 0,
     });
-    
 
   } catch (error) {
     console.error("Error mengubah visibility:", error);
@@ -233,9 +559,10 @@ const updateVisibility = async (req, res) => {
       success: false,
       message: "Kesalahan internal server",
       error_code: 500,
-    })
+    });
   }
-}
+};
+
 
 const updateThemeHub = async (req, res) => {
   try{
@@ -304,19 +631,72 @@ const updateThemeHub = async (req, res) => {
   }
 }
 
+// const getTopTalent = async (req, res) => {
+//   try{
+//     const topTalent = await models.User.findAll({
+//       where: { is_premium: true },
+//       limit : 5,
+//     })
+
+//     if (!topTalent || topTalent.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         data: [],
+//         message: "Tidak ada top talent yang ditemukan",
+//         error_code: 404,
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       data: topTalent,
+//       message: "Top talent berhasil diambil",
+//       error_code: 0,
+//     });
+  
+//   }catch(error){
+//     console.error("Error mengambil top talent:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Kesalahan internal server",
+//       error_code: 500,
+//     })
+//   }
+// }
+
 const getTopTalent = async (req, res) => {
-  try{
+  try {
+    const { user_id } = getUserId(req);
+
+    // Query untuk mendapatkan top talent berdasarkan proyek yang diselesaikan
     const topTalent = await models.User.findAll({
-      where: { is_premium: true },
-      limit : 5,
-    })
+      attributes: {
+        include: [
+          [
+            literal(`(
+              SELECT COUNT(*)
+              FROM project_reviews
+              WHERE project_reviews.freelancer_id = User.id
+              AND project_reviews.review_type = 'owner'
+            )`),
+            'completedProjectsCount'
+          ]
+        ]
+      },
+      where: {
+        is_premium: true,
+        id: { [Op.ne]: user_id }
+      },
+      order: [[literal('completedProjectsCount'), 'DESC']],
+      limit: 5
+    });
 
     if (!topTalent || topTalent.length === 0) {
       return res.status(404).json({
         success: false,
         data: [],
         message: "Tidak ada top talent yang ditemukan",
-        error_code: 404,
+        error_code: 404
       });
     }
 
@@ -324,22 +704,32 @@ const getTopTalent = async (req, res) => {
       success: true,
       data: topTalent,
       message: "Top talent berhasil diambil",
-      error_code: 0,
+      error_code: 0
     });
-  
-  }catch(error){
+
+  } catch (error) {
     console.error("Error mengambil top talent:", error);
     return res.status(500).json({
       success: false,
       message: "Kesalahan internal server",
-      error_code: 500,
-    })
+      error_code: 500
+    });
   }
-}
+};
+
+
 
 module.exports = {
+  getProfileById,
+  getAllProfiles,
+  updateProfile,
+  deleteProfile,
   getPublicUser,
+  getAllRoles,
+  createRole,
+  getAllUsersAdmin,
+  updateUserVerificationStatus,
   updateVisibility,
   updateThemeHub,
-  getTopTalent,
+  getTopTalent
 };
